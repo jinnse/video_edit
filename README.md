@@ -31,7 +31,7 @@ git clone <깃허브 주소>
 
 ### 𝟮. ISSUE 생성
 - LetsGit의 Issues를 들어가주세요.
-![](https://velog.velcdn.com/images/xxoznge/post/c162542d-5941-456f-8008-127230be2fa1/image.png)
+
 - New issue > ✨ [FEATURE] Get Started 에 들어가서 이슈 생성을 해보세요. 미리 템플릿을 만들어두었으니 작성해보세요.
 
 ### 𝟯. branch 만들기
@@ -52,8 +52,7 @@ git clone <깃허브 주소>
 ```
 
 ### 6. PR 생성
-- 이 사진엔 없지만 push를 하면 위에 pr 생성을 하도록 문구가 뜹니다.
-![](https://velog.velcdn.com/images/xxoznge/post/d810f0e1-cbb0-4065-8808-96ec8b43366f/image.png)
+- push를 하면 위에 pr 생성을 하도록 문구가 뜹니다.
 
 - 미리 만들어둔 PR 템플릿에 작성해주세요. (resolve 옆에는 자신의 이슈 번호)
 
