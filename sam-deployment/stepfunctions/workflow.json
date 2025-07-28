@@ -1,0 +1,107 @@
+{
+  "Comment": "영상 변환 후 AI 분석 병렬 처리",
+  "StartAt": "ExtractVideoInfo",
+  "States": {
+    "ExtractVideoInfo": {
+      "Type": "Pass",
+      "Parameters": {
+        "jobId.$": "$.detail.jobId",
+        "title.$": "$.detail.title",
+        "outputBucket.$": "$.detail.outputBucket",
+        "s3Path.$": "$.detail.s3Path",
+        "prefix.$": "$.detail.prefix",
+        "mediaFormat.$": "$.detail.mediaFormat",
+        "languageCode.$": "$.detail.languageCode",
+        "bucket_path.$": "$.detail.bucket_path",
+        "originalFilename.$": "$.detail.originalFilename"
+      },
+      "ResultPath": "$.prepared",
+      "Next": "ParallelAnalysis"
+    },
+    "ParallelAnalysis": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "Transcribe",
+          "States": {
+            "Transcribe": {
+              "Type": "Task",
+              "Resource": "${TranscribeLambdaArn}",
+              "Retry": [
+                {
+                  "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.TaskFailed"],
+                  "Next": "TranscribeError",
+                  "ResultPath": "$.error"
+                }
+              ],
+              "End": true
+            },
+            "TranscribeError": {
+              "Type": "Pass",
+              "Parameters": {
+                "statusCode": 500,
+                "error": "Transcribe analysis failed",
+                "details.$": "$.error"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "TwelvlabsAnalysis",
+          "States": {
+            "TwelvlabsAnalysis": {
+              "Type": "Task",
+              "Resource": "${TwelvlabsLambdaArn}",
+              "Retry": [
+                {
+                  "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.TaskFailed"],
+                  "Next": "TwelvlabsError",
+                  "ResultPath": "$.error"
+                }
+              ],
+              "End": true
+            },
+            "TwelvlabsError": {
+              "Type": "Pass",
+              "Parameters": {
+                "statusCode": 500,
+                "error": "Twelvlabs analysis failed",
+                "details.$": "$.error"
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "Next": "ProcessResults"
+    },
+    "ProcessResults": {
+      "Type": "Pass",
+      "Parameters": {
+        "jobId.$": "$.prepared.jobId",
+        "transcribeResult.$": "$[0]",
+        "twelvlabsResult.$": "$[1]",
+        "processingComplete": true,
+        "timestamp.$": "$$.State.EnteredTime"
+      },
+      "End": true
+    }
+  }
+}
