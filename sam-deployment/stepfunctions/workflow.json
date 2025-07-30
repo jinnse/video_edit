@@ -1,5 +1,5 @@
 {
-  "Comment": "영상 변환 후 AI 분석 병렬 처리",
+  "Comment": "영상 변환",
   "StartAt": "ExtractVideoInfo",
   "States": {
     "ExtractVideoInfo": {
@@ -26,81 +26,39 @@
           "States": {
             "Transcribe": {
               "Type": "Task",
-              "Resource": "${TranscribeLambdaArn}",
-              "Retry": [
-                {
-                  "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
-                  "IntervalSeconds": 2,
-                  "MaxAttempts": 6,
-                  "BackoffRate": 2
-                }
-              ],
-              "Catch": [
-                {
-                  "ErrorEquals": ["States.TaskFailed"],
-                  "Next": "TranscribeError",
-                  "ResultPath": "$.error"
-                }
-              ],
-              "End": true
-            },
-            "TranscribeError": {
-              "Type": "Pass",
+              "TimeoutSeconds": 30,
+              "Resource": "arn:aws:lambda:ap-northeast-2:567279714866:function:TranscribeLambda",
               "Parameters": {
-                "statusCode": 500,
-                "error": "Transcribe analysis failed",
-                "details.$": "$.error"
+                "jobId.$": "$.prepared.jobId",
+                "outputBucket.$": "$.prepared.outputBucket",
+                "prefix.$": "$.prepared.prefix",
+                "mediaFormat.$": "$.prepared.mediaFormat",
+                "languageCode.$": "$.prepared.languageCode",
+                "title.$": "$.prepared.title"
               },
               "End": true
             }
           }
         },
         {
-          "StartAt": "TwelvlabsAnalysis",
+          "StartAt": "Twelvelabs",
           "States": {
-            "TwelvlabsAnalysis": {
+            "Twelvelabs": {
               "Type": "Task",
-              "Resource": "${TwelvlabsLambdaArn}",
-              "Retry": [
-                {
-                  "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
-                  "IntervalSeconds": 2,
-                  "MaxAttempts": 6,
-                  "BackoffRate": 2
-                }
-              ],
-              "Catch": [
-                {
-                  "ErrorEquals": ["States.TaskFailed"],
-                  "Next": "TwelvlabsError",
-                  "ResultPath": "$.error"
-                }
-              ],
-              "End": true
-            },
-            "TwelvlabsError": {
-              "Type": "Pass",
+              "TimeoutSeconds": 30,
+              "Resource": "arn:aws:lambda:ap-northeast-2:567279714866:function:TwelvlabsLamda",
               "Parameters": {
-                "statusCode": 500,
-                "error": "Twelvlabs analysis failed",
-                "details.$": "$.error"
+                "jobId.$": "$.prepared.jobId",
+                "s3Path.$": "$.prepared.s3Path",
+                "bucket_path.$": "$.prepared.bucket_path",
+                "originalFilename.$": "$.prepared.originalFilename",
+                "title.$": "$.prepared.title"
               },
               "End": true
             }
           }
         }
       ],
-      "Next": "ProcessResults"
-    },
-    "ProcessResults": {
-      "Type": "Pass",
-      "Parameters": {
-        "jobId.$": "$.prepared.jobId",
-        "transcribeResult.$": "$[0]",
-        "twelvlabsResult.$": "$[1]",
-        "processingComplete": true,
-        "timestamp.$": "$$.State.EnteredTime"
-      },
       "End": true
     }
   }
