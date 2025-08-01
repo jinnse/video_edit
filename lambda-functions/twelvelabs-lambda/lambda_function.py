@@ -7,6 +7,8 @@ import time
 import hashlib
   
 import urllib.parse
+
+import uuid
   
 
   
@@ -61,7 +63,7 @@ def lambda_handler(event, context):
   
                 "s3OutputDataConfig": {
   
-                    "s3Uri": f"{bucket_path}marengo_data"  # 기존 bucket_path
+                    "s3Uri": f"{bucket_path}marengo_data/{video_name}"  # 기존 bucket_path
   
                 }
   
@@ -73,7 +75,7 @@ def lambda_handler(event, context):
   
         response = client.start_async_invoke(
   
-            clientRequestToken=hashlib.sha256(video_s3_path.encode('utf-8')).hexdigest()[:32],  # 기존 file_key -> video_s3_path
+           clientRequestToken = str(uuid.uuid4())[:32],  # 기존 file_key -> video_s3_path
   
             modelId='twelvelabs.marengo-embed-2-7-v1:0',
   
@@ -93,7 +95,8 @@ def lambda_handler(event, context):
   
             ]
         )
-  
+        print(response)
+    
     except KeyError as e:
   
         print(f"KeyError: {e}")
