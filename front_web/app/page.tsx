@@ -14,15 +14,39 @@ export default function VideoFinderPage() {
     fileInputRef.current?.click() // 숨겨진 파일 입력 요소 클릭 트리거
   }
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files
-    if (files && files.length > 0) {
-      const selectedFile = files[0]
-      console.log("선택된 비디오 파일:", selectedFile.name)
-      // 여기에 선택된 파일을 처리하는 로직을 추가할 수 있습니다.
-      // 예: 파일을 서버에 업로드하거나, 미리보기 표시 등
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const files = event.target.files
+  if (!files || files.length === 0) return
+
+  const selectedFile = files[0]
+  console.log("선택된 비디오 파일:", selectedFile.name)
+
+  // 백엔드에서 S3 presigned URL 요청
+  const res = await fetch("/api/v1/s3_input", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ filename: selectedFile.name, contentType: selectedFile.type })
+  })
+
+  const { uploadUrl } = await res.json()
+
+  // presigned URL로 S3 업로드
+  const uploadRes = await fetch(uploadUrl, {
+    method: "PUT",
+    body: selectedFile,
+    headers: {
+      "Content-Type": selectedFile.type
     }
+  })
+
+  if (uploadRes.ok) {
+    alert("비디오 업로드 완료!")
+  } else {
+    alert("업로드 실패!")
   }
+}
 
   return (
     <div className="min-h-screen bg-gray-950 relative">
