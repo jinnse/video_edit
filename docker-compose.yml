@@ -9,6 +9,10 @@ services:
     ports:
       - "5000:5000"
     restart: always
+    networks:
+      - app-network
+   
+     
 
   s3_upload:
     build:
@@ -18,6 +22,10 @@ services:
     ports:
       - "5001:5000"
     restart: always
+    networks:
+      - app-network
+    
+    
 
   video_ai:
     build:
@@ -27,7 +35,9 @@ services:
     ports:
       - "5002:5000"
     restart: always
-
+    networks:
+      - app-network
+    
   front_final:
     build:
       context: ./front_final
@@ -36,3 +46,10 @@ services:
     ports:
       - "5003:5000"
     restart: always
+    networks:
+      - app-network
+    
+
+networks:
+  app-network:
+    driver: bridge
