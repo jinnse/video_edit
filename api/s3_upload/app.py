@@ -22,11 +22,11 @@ def s3_upload():
             Params= {"Bucket": bucket, "Key": filename},
             ExpiresIn=1000
         )
-    except ClientError:
-        print(f"Couldn't get a presigned URL for client method '{url}'.")
-        raise
+    except ClientError as e:
+        logging.error(f"Couldn't generate presigned URL: {e}")
+        return jsonify({"error": "Could not generate URL"}), 500
     
-    return url
+    return jsonify({"uploadUrl": url})
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)
