@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  bucket_list:
+    build:
+      context: ./api/bucket_list
+      dockerfile: dockerfile
+    container_name: bucket_list_service
+    ports:
+      - "5000:5000"
+    restart: always
+
+  s3_upload:
+    build:
+      context: ./api/s3_upload
+      dockerfile: dockerfile
+    container_name: s3_upload_service
+    ports:
+      - "5001:5000"
+    restart: always
+
+  video_ai:
+    build:
+      context: ./api/video_ai
+      dockerfile: dockerfile
+    container_name: video_ai_service
+    ports:
+      - "5002:5000"
+    restart: always
