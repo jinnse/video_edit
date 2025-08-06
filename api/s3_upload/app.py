@@ -15,7 +15,11 @@ def s3_upload():
 
     bucket = "video-input-pipeline-20250724"
     data = request.get_json()
-    filename = data.get('filename')
+    filename = data.get('filename')  
+    content_type = data.get('contentType')
+    
+    if not content_type:
+        return jsonify({"error": "contentType is required"}), 400
 
     try:
         url = s3.generate_presigned_url(
