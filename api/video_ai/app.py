@@ -13,34 +13,20 @@ app = Flask(__name__)
 logger = logging.getLogger(__name__)
 
 def invoke_agent(client, agent_id, alias_id, prompt, session_id):
-        response = client.invoke_agent(
-            agentId=agent_id,
-            agentAliasId=alias_id,
-            enableTrace=True,
-            sessionId = session_id,
-            inputText=prompt,
-            streamingConfigurations = { 
-    "applyGuardrailInterval" : 20,
-      "streamFinalResponse" : False
-            }
+    response = client.invoke_agent(
+        agentId=agent_id,
+        agentAliasId=alias_id,
+        enableTrace=True,
+        sessionId = session_id,
+        inputText=prompt,
+        streamingConfigurations = { 
+            "applyGuardrailInterval" : 20,
+            "streamFinalResponse" : False
+        }
         )
-        completion = ""
-        for event in response.get("completion"):
-            #Collect agent output.
-            if 'chunk' in event:
-                chunk = event["chunk"]
-                completion += chunk["bytes"].decode()
-            
-            # Log trace output.
-            if 'trace' in event:
-                trace_event = event.get("trace")
-                trace = trace_event['trace']
-                for key, value in trace.items():
-                    logging.info("%s: %s",key,value)
+    return response
 
-        print(f"Agent response: {completion}")
-
-@app.route('/api/v1/lambda_function', methods=['GET'])
+@app.route('/api/v1/video_ai', methods=['GET'])
 def lambda_client():
     selected_video = request.args.get('selectedVideo')
     selected_count = request.args.get('selectedCount')
