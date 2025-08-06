@@ -8,13 +8,11 @@ app = Flask(__name__)
 
 @app.route('/api/v1/s3_intput', methods=['POST'])
 def s3_upload():
-    
-    file_name = request.get('file_name')
 
     s3 = boto3.client('s3')
 
-    bucket = ""
-    filename = request.post('filename')
+    bucket = "video-input-pipeline-20250724"
+    filename = request.json.get('filename')
 
     try:
         url = s3.generate_presigned_url(
