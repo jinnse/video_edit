@@ -4,17 +4,17 @@ import boto3
 import logging
 from botocore.exceptions import ClientError
 
-@app.route('/api/v1/s3_intput', methods=['GET'])
+app = Flask(__name__)
+
+@app.route('/api/v1/s3_intput', methods=['POST'])
 def s3_upload():
-    if 'video' not in request.files:
-        return jsonify({"error": "No video file part"}), 400
     
-    file_name = request.files['video']
+    file_name = request.get('file_name')
 
     s3 = boto3.client('s3')
 
     bucket = ""
-    filename = request.arg.get('filename')
+    filename = request.post('filename')
 
     try:
         url = s3.generate_presigned_url(
@@ -27,3 +27,6 @@ def s3_upload():
         raise
     
     return url
+
+if __name__ == "__main__":
+    app.run(debug=True, host='0.0.0.0', port=5000)
