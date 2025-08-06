@@ -3,8 +3,10 @@ import json
 import boto3
 import logging
 from botocore.exceptions import ClientError
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 @app.route('/api/v1/s3_intput', methods=['POST'])
 def s3_upload():

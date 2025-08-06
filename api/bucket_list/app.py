@@ -2,8 +2,10 @@ from flask import Flask, jsonify, render_template
 import boto3
 import json
 import os
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 
 def load_output_json(bucket_name):

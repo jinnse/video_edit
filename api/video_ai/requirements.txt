@@ -1,3 +1,5 @@
 boto3==1.39.4
 Flask==3.1.1
 python-dotenv
+flask-cors==3.1.1
+

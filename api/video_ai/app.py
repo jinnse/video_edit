@@ -5,11 +5,12 @@ import os
 from dotenv import load_dotenv
 import logging
 import uuid
-
+from flask_cors import CORS
 from botocore.exceptions import ClientError
 
 
 app = Flask(__name__)
+CORS(app)
 logger = logging.getLogger(__name__)
 
 def invoke_agent(client, agent_id, alias_id, prompt, session_id):
@@ -44,8 +45,8 @@ def lambda_client():
             service_name="bedrock-agent-runtime",
             region_name="ap-northeast-2") 
     
-    agent_id = "trans"
-    alias_id = "DRAFT"
+    agent_id = "DZGUXKP42U"
+    alias_id = "QXS8QGG2LG"
     session_id = str(uuid.uuid4()) # 겹치지 않게 일회성 생성
     prompt = ai_prompt
 
@@ -53,7 +54,7 @@ def lambda_client():
         response_payload = invoke_agent(client, agent_id, alias_id, prompt, session_id)
 
         print (response_payload)
-        
+
         return jsonify(response_payload)
 
     except ClientError as e:
