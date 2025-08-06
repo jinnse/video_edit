@@ -52,6 +52,8 @@ def lambda_client():
     try:
         response_payload = invoke_agent(client, agent_id, alias_id, prompt, session_id)
 
+        print (response_payload)
+        
         return jsonify(response_payload)
 
     except ClientError as e:
