@@ -17,14 +17,14 @@ def s3_upload():
     data = request.get_json()
     filename = data.get('filename')  
     content_type = data.get('contentType')
-    
+
     if not content_type:
         return jsonify({"error": "contentType is required"}), 400
 
     try:
         url = s3.generate_presigned_url(
             ClientMethod="put_object",
-            Params= {"Bucket": bucket, "Key": filename},
+            Params= {"Bucket": bucket, "Key": filename, "ContentType": content_type},
             ExpiresIn=1000
         )
     except ClientError as e:
