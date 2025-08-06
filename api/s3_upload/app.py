@@ -8,13 +8,14 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-@app.route('/api/v1/s3_intput', methods=['POST'])
+@app.route('/api/v1/s3_input', methods=['POST'])
 def s3_upload():
 
     s3 = boto3.client('s3')
 
     bucket = "video-input-pipeline-20250724"
-    filename = request.json.get('filename')
+    data = request.get_json()
+    filename = data.get('filename')
 
     try:
         url = s3.generate_presigned_url(
