@@ -27,3 +27,12 @@ services:
     ports:
       - "5002:5000"
     restart: always
+
+  front_final:
+    build:
+      context: ./front_final
+      dockerfile: Dockerfile
+    container_name: front_service
+    ports:
+      - "5003:5000"
+    restart: always
