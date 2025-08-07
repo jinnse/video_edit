@@ -20,7 +20,7 @@ services:
       dockerfile: dockerfile
     container_name: s3_upload_service
     ports:
-      - "5001:5000"
+      - "5001:5001"
     restart: always
     networks:
       - app-network
@@ -33,7 +33,7 @@ services:
       dockerfile: dockerfile
     container_name: video_ai_service
     ports:
-      - "5002:5000"
+      - "5002:5002"
     restart: always
     networks:
       - app-network
