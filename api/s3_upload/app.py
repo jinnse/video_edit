@@ -24,7 +24,7 @@ def s3_upload():
     try:
         url = s3.generate_presigned_url(
             ClientMethod="put_object",
-            Params= {"Bucket": bucket, "Key": filename},
+            Params= {"Bucket": bucket, "Key": filename, "ContentType": content_type},
             ExpiresIn=1000
         )
     except ClientError as e:
