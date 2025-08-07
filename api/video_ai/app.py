@@ -10,7 +10,7 @@ from botocore.exceptions import ClientError
 
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": ["http://13.125.124.67/:5003"]}}, supports_credentials=True)
+CORS(app, resources={r'/api/*': {'origins': 'http://13.125.124.67:5003'}})
 logger = logging.getLogger(__name__)
 
 def invoke_agent(client, agent_id, alias_id, prompt, session_id):
