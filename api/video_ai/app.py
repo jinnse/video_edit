@@ -45,8 +45,8 @@ def lambda_client():
             service_name="bedrock-agent-runtime",
             region_name="ap-northeast-2") 
     
-    agent_id = "DZGUXKP42U"
-    alias_id = "QXS8QGG2LG"
+    agent_id = "8FT99SKAF6"
+    alias_id = "C8GZ2E14HU"
     session_id = str(uuid.uuid4()) # 겹치지 않게 일회성 생성
     prompt = json.dumps(ai_prompt)
 
