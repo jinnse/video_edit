@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Root SAM Stack for Video Pipeline
+
+Resources:
+  S3EventBridgeModule:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/eventbridge/template.yaml
+
+  SQSModule:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/sqs/template.yaml
+
+  TranscribeLambdaModule:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/lambdas/transcribe_lambda/template.yaml
+
+  MediaConvertLambdaModule:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/lambdas/mediaconvert_lambda/template.yaml
+
+  StepFunctionsModule:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/stepfunctions/template.yaml
