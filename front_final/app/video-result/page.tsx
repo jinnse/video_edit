@@ -139,7 +139,7 @@ export default function VideoResultPage() {
   const fetchVideoOptions = async () => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "https://www.videofinding.com:5000"}/api/v1/bucketdata`,
+        "/api/bucket/bucketdata",
       )
       if (response.ok) {
         const data = await response.json()
@@ -195,7 +195,7 @@ export default function VideoResultPage() {
         prompt: effectivePrompt,
       })
 
-      const response = await fetch(`https://www.videofinding.com:5002/api/v1/video_ai?${params}`, {
+      const response = await fetch(`/api/video/video_ai?${params}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",

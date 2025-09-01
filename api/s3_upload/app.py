@@ -5,7 +5,7 @@ from botocore.config import Config
 
 app = Flask(__name__)
 
-ALLOWED_ORIGINS = {"http://13.125.181.147:5003"}  # 필요시 여러 개 추가
+ALLOWED_ORIGINS = {"https://www.videofinding.com"}  # 로드 밸런서 도메인
 
 def add_cors_headers(resp):
     origin = request.headers.get("Origin")
@@ -38,7 +38,7 @@ def apply_cors(resp):
     # 모든 정상/에러 응답에 CORS 헤더 부착
     return add_cors_headers(resp)
 
-@app.route('/api/v1/s3_input', methods=['POST'])
+@app.route('/api/storage/s3_input', methods=['POST'])
 def s3_upload():
     # 여기까지 왔다는 건 프리플라이트가 2xx로 통과했다는 뜻
     s3 = boto3.client(
@@ -64,6 +64,11 @@ def s3_upload():
     except ClientError as e:
         logging.exception("Couldn't generate presigned URL")
         return jsonify({"error": "Could not generate URL"}), 500
+
+# 헬스체크 API
+@app.route('/api/storage/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'healthy', 'message': 'S3 upload API is running'}), 200
 
 if __name__ == "__main__":
     # prod에서는 반드시 WSGI 서버(gunicorn/uwsgi) + 프록시에서 OPTIONS 전달 설정

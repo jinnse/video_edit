@@ -105,7 +105,7 @@ export default function StoragePage() {
       console.log("📤 S3 업로드 시작:", file.name)
 
       // 1. Presigned URL 요청
-      const presignedResponse = await fetch("https://www.videofinding.com:5001/api/v1/s3_input", {
+      const presignedResponse = await fetch("/api/storage/s3_input", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -153,7 +153,7 @@ export default function StoragePage() {
       console.log("Fetching videos from S3 bucket: video-input-pipeline-20250724")
 
       // S3 버킷에서 모든 파일 조회
-      const response = await fetch("https://www.videofinding.com:5000/api/v1/bucketdata")
+      const response = await fetch("/api/bucket/bucketdata")
       console.log("API Response status:", response.status)
 
       if (!response.ok) {
@@ -367,7 +367,7 @@ export default function StoragePage() {
     try {
       console.log(`🗑️ 파일 삭제 시작: ${video.path}`)
 
-      const response = await fetch("https://www.videofinding.com:5000/api/v1/deletefile", {
+      const response = await fetch("/api/bucket/deletefile", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",

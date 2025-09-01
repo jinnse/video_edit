@@ -9,7 +9,7 @@ from jose import jwt
 import datetime
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["https://www.videofinding.com"])
 
 # AWS Cognito 설정
 COGNITO_CONFIG = {
@@ -99,7 +99,7 @@ def token_required(f):
     return decorated
 
 # 회원가입 요청 API (이메일 인증 코드 전송)
-@app.route('/api/v1/send-verification', methods=['POST'])
+@app.route('/api/auth/send-verification', methods=['POST'])
 def send_verification():
     try:
         data = request.get_json()
@@ -160,7 +160,7 @@ def send_verification():
         return jsonify({'error': f'서버 오류: {str(e)}'}), 500
 
 # 이메일 인증 코드 확인 API (회원가입 완료)
-@app.route('/api/v1/verify-email', methods=['POST'])
+@app.route('/api/auth/verify-email', methods=['POST'])
 def verify_email():
     try:
         data = request.get_json()
@@ -197,7 +197,7 @@ def verify_email():
         return jsonify({'error': f'서버 오류: {str(e)}'}), 500
 
 # 회원가입 완료 API (이미 이메일 인증이 완료된 사용자)
-@app.route('/api/v1/signup', methods=['POST'])
+@app.route('/api/auth/signup', methods=['POST'])
 def signup():
     try:
         data = request.get_json()
@@ -245,7 +245,7 @@ def signup():
         return jsonify({'error': f'서버 오류: {str(e)}'}), 500
 
 # 이메일 확인 코드 확인 API
-@app.route('/api/v1/confirm-signup', methods=['POST'])
+@app.route('/api/auth/confirm-signup', methods=['POST'])
 def confirm_signup():
     try:
         data = request.get_json()
@@ -281,7 +281,7 @@ def confirm_signup():
         return jsonify({'error': f'서버 오류: {str(e)}'}), 500
 
 # 로그인 API (Cognito)
-@app.route('/api/v1/signin', methods=['POST'])
+@app.route('/api/auth/signin', methods=['POST'])
 def signin():
     try:
         data = request.get_json()
@@ -336,7 +336,7 @@ def signin():
         return jsonify({'error': f'서버 오류: {str(e)}'}), 500
 
 # 사용자 정보 조회 API (토큰 필요)
-@app.route('/api/v1/profile', methods=['GET'])
+@app.route('/api/auth/profile', methods=['GET'])
 @token_required
 def get_profile(current_user):
     try:
@@ -359,7 +359,7 @@ def get_profile(current_user):
         return jsonify({'error': f'서버 오류: {str(e)}'}), 500
 
 # 토큰 검증 API
-@app.route('/api/v1/verify', methods=['POST'])
+@app.route('/api/auth/verify', methods=['POST'])
 def verify_token():
     try:
         data = request.get_json()
@@ -414,7 +414,7 @@ def verify_token():
         return jsonify({'error': f'서버 오류: {str(e)}'}), 500
 
 # 헬스체크 API
-@app.route('/api/v1/health', methods=['GET'])
+@app.route('/api/auth/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'healthy', 'message': 'Sign up/in API is running'}), 200
 

@@ -67,7 +67,7 @@ export default function MainPage() {
 
       // 백엔드에서 S3 presigned URL 요청
       console.log("Presigned URL 요청 시작")
-      const res = await fetch("https://www.videofinding.com:5001/api/v1/s3_input", {
+      const res = await fetch("/api/storage/s3_input", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

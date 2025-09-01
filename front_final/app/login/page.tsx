@@ -21,7 +21,7 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const response = await fetch('https://www.videofinding.com:5005/api/v1/signin', {
+      const response = await fetch('/api/auth/signin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

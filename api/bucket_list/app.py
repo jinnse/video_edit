@@ -5,7 +5,7 @@ import os
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["https://www.videofinding.com"])
 
 
 def load_output_json(bucket_name):
@@ -162,7 +162,7 @@ def delete_video_and_related_files(bucket_name, video_path):
 # def index():
 #     return render_template('index.html')
 
-@app.route('/api/v1/bucketdata', methods=['GET'])
+@app.route('/api/bucket/bucketdata', methods=['GET'])
 def get_s3_list():
     BUCKET_NAME = 'video-input-pipeline-20250724'
     result = load_output_json(BUCKET_NAME)
@@ -172,7 +172,7 @@ def get_s3_list():
         return jsonify({"error": "S3 접근 오류"}), 500
 
 
-@app.route('/api/v1/deletefile', methods=['DELETE'])
+@app.route('/api/bucket/deletefile', methods=['DELETE'])
 def delete_file():
     BUCKET_NAME = 'video-input-pipeline-20250724'
     
@@ -206,6 +206,11 @@ def delete_file():
         print(f"❌ 삭제 API 오류: {e}")
         return jsonify({"error": f"서버 오류: {str(e)}"}), 500
 
+
+# 헬스체크 API
+@app.route('/api/bucket/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'healthy', 'message': 'Bucket list API is running'}), 200
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)

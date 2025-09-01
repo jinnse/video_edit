@@ -72,7 +72,7 @@ export default function SignUpPage() {
     setSuccess("")
 
     try {
-      const response = await fetch('https://www.videofinding.com:5005/api/v1/signup', {
+      const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -112,7 +112,7 @@ export default function SignUpPage() {
     setSuccess("")
 
     try {
-      const response = await fetch('https://www.videofinding.com:5005/api/v1/send-verification', {
+      const response = await fetch('/api/auth/send-verification', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -151,7 +151,7 @@ export default function SignUpPage() {
     setSuccess("")
 
     try {
-      const response = await fetch('https://www.videofinding.com:5005/api/v1/verify-email', {
+      const response = await fetch('/api/auth/verify-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

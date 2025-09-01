@@ -18,7 +18,7 @@ FLOW_IDENTIFIER = os.getenv("FLOW_IDENTIFIER", "8FT99SKAF6")
 FLOW_ALIAS_IDENTIFIER = os.getenv("FLOW_ALIAS_IDENTIFIER", "P37AGF904J")
 FLOW_INPUT_NODE_NAME = os.getenv("FLOW_INPUT_NODE_NAME", "FlowInputNode")
 
-ALLOWED_ORIGINS = ["http://13.125.181.147:5003", "http://localhost:3000"]
+ALLOWED_ORIGINS = ["https://www.videofinding.com"]
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": ALLOWED_ORIGINS, "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Content-Type", "Authorization"]}})
@@ -289,13 +289,13 @@ def invoke_flow(flow_identifier: str, flow_alias_identifier: str, flow_input_nod
         "completionReason": result.get("completionReason") or "UNKNOWN",
     }
 
-@app.route("/api/v1/video_ai", methods=["GET", "POST", "OPTIONS"])
+@app.route("/api/video/video_ai", methods=["GET", "POST", "OPTIONS"])
 def video_ai():
     try:
         if request.method == "OPTIONS":
             return jsonify({"ok": True})
         ai_prompt = parse_request(request)
-        logger.info("=== /api/v1/video_ai === %s", ai_prompt)
+        logger.info("=== /api/video/video_ai === %s", ai_prompt)
 
         if not ai_prompt.get("prompt"):
             return jsonify({"ok": False, "error": "MISSING_PROMPT"}), 400
@@ -322,7 +322,7 @@ def video_ai():
         return jsonify({"ok": False, "error": "UNEXPECTED_ERROR", "detail": str(e)}), 500
 
 # ▶️ 디버그: Flow/Alias 존재 및 매핑 확인
-@app.route("/api/v1/_debug/verify_flow", methods=["GET"])
+@app.route("/api/video/_debug/verify_flow", methods=["GET"])
 def verify_flow():
     try:
         sts = boto3.client("sts").get_caller_identity()
@@ -350,6 +350,11 @@ def verify_flow():
     except Exception as e:
         logger.exception("Verify Unexpected")
         return jsonify({"ok": False, "error": "VERIFY_UNEXPECTED", "detail": str(e)}), 500
+
+# 헬스체크 API
+@app.route("/api/video/health", methods=["GET"])
+def health_check():
+    return jsonify({'status': 'healthy', 'message': 'Video AI API is running'}), 200
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
