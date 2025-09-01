@@ -39,9 +39,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
 
 # 포트 노출
-EXPOSE 3000
+EXPOSE 5000
 
-ENV PORT 3000
+ENV PORT 5000
 ENV HOSTNAME "0.0.0.0"
 
 # 애플리케이션 실행

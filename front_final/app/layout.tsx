@@ -4,9 +4,12 @@ import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
+  title: 'Clip Haus',
+  description: 'AI-powered video editing and search platform',
   generator: 'v0.dev',
+  icons: {
+    icon: '/placeholder-logo.png', // 기존 로고 파일을 favicon으로 사용
+  },
 }
 
 export default function RootLayout({

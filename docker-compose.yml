@@ -35,9 +35,28 @@ services:
     ports:
       - "5002:5000"
     restart: always
+    environment:
+      - AWS_REGION=ap-northeast-2
     networks:
       - app-network
     
+  sign_upin:
+    build:
+      context: ./api/sign_upin
+      dockerfile: dockerfile
+    container_name: sign_upin_service
+    ports:
+      - "5005:5000"
+    restart: always
+    environment:
+      - COGNITO_USER_POOL_ID=ap-northeast-2_fHq8zuye4
+      - COGNITO_CLIENT_ID=4k5u5pgsiis0ariqeqhei7p1hf
+      - COGNITO_CLIENT_SECRET=
+      - AWS_REGION=ap-northeast-2
+    networks:
+      - app-network
+    
+
   front_final:
     build:
       context: ./front_final

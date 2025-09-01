@@ -1,49 +1,127 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import Link from "next/link"
-import { useRef } from "react"
+import { useRouter } from "next/navigation"
+import { useRef, useState, useEffect } from "react"
 
 export default function MainPage() {
+  const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [username, setUsername] = useState("")
+  const [showUserMenu, setShowUserMenu] = useState(false)
+
+  // 로그인 상태 확인
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    const user = localStorage.getItem('user')
+    
+    if (token && user) {
+      try {
+        const userData = JSON.parse(user)
+        setIsLoggedIn(true)
+        setUsername(userData.username || 'User')
+      } catch (error) {
+        console.error('사용자 데이터 파싱 오류:', error)
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+      }
+    }
+  }, [])
+
+  // 로그아웃 함수
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    setIsLoggedIn(false)
+    setUsername("")
+    setShowUserMenu(false)
+    router.push('/')
+  }
 
   const handleButtonClick = () => {
-    fileInputRef.current?.click()
+    if (isLoggedIn) {
+      router.push("/storage")
+    } else {
+      router.push("/login")
+    }
   }
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files
-    if (!files || files.length === 0) return
+    try {
+      console.log("파일 선택 이벤트 시작")
 
-    const selectedFile = files[0]
-    console.log("선택된 비디오 파일:", selectedFile.name)
-
-    // 백엔드에서 S3 presigned URL 요청
-    const res = await fetch("/api/v1/s3_input", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ filename: selectedFile.name, contentType: selectedFile.type })
-    })
-
-    const { uploadUrl } = await res.json()
-
-    // presigned URL로 S3 업로드
-    const uploadRes = await fetch(uploadUrl, {
-      method: "PUT",
-      body: selectedFile,
-      headers: {
-        "Content-Type": selectedFile.type
+      const files = event.target.files
+      if (!files || files.length === 0) {
+        console.log("파일이 선택되지 않음")
+        return
       }
-    })
 
-    if (uploadRes.ok) {
-      alert("비디오 업로드 완료!")
-    } else {
-      alert("업로드 실패!")
+      const selectedFile = files[0]
+      console.log("선택된 비디오 파일:", selectedFile.name)
+      console.log("파일 타입:", selectedFile.type)
+      console.log("파일 크기:", selectedFile.size)
+
+      // 백엔드에서 S3 presigned URL 요청
+      console.log("Presigned URL 요청 시작")
+      const res = await fetch("https://www.videofinding.com:5001/api/v1/s3_input", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          filename: selectedFile.name,
+          contentType: "video/mp4",
+        }),
+      })
+
+      console.log("Presigned URL 응답:", res.status)
+
+      if (!res.ok) {
+        const errorText = await res.text()
+        console.error("Presigned URL 요청 실패:", errorText)
+        alert("Presigned URL 요청 실패!")
+        return
+      }
+
+      const responseData = await res.json()
+      console.log("Presigned URL 응답 데이터:", responseData)
+
+      const { uploadUrl } = responseData
+      console.log("Presigned URL:", uploadUrl)
+
+      // presigned URL로 S3 업로드
+      console.log("S3 업로드 시작")
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        body: selectedFile,
+        headers: {
+          "Content-Type": selectedFile.type || "video/mp4",
+        },
+      })
+
+      console.log("S3 업로드 응답:", uploadRes.status)
+
+      if (uploadRes.ok) {
+        console.log("비디오 업로드 성공!")
+        alert("비디오 업로드 완료!")
+      } else {
+        const errorText = await uploadRes.text()
+        console.error("S3 업로드 실패:", errorText)
+        alert("업로드 실패!")
+      }
+    } catch (error) {
+      console.error("파일 업로드 중 오류 발생:", error)
+      if (error instanceof Error) {
+        console.error("오류 스택:", error.stack)
+        console.error("오류 메시지:", error.message)
+      }
+      console.error("오류 타입:", typeof error)
+      console.error("오류 객체:", JSON.stringify(error, null, 2))
+      alert("파일 업로드 중 오류가 발생했습니다!")
     }
   }
 
@@ -53,37 +131,65 @@ export default function MainPage() {
       <div className="absolute inset-0 bg-gradient-to-br from-customOrangeBrown/15 to-transparent pointer-events-none z-0"></div>
       {/* 기존 보라색/파란색 그라데이션 오버레이 */}
       <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-transparent to-blue-900/20 pointer-events-none z-0"></div>
-      
+
       {/* Navigation */}
       <nav className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 border-b border-gray-700 bg-gray-900/80 backdrop-blur-md">
         {/* Left - Logo */}
         <div className="flex flex-col items-start">
           <Link href="/" className="text-white font-semibold text-lg hover:text-gray-300 transition-colors">
-            Video Finder
+            Clip Haus
           </Link>
-          <div className="text-gray-400 text-xs mt-0.5">Summary | Shorts | Highlights</div>
         </div>
 
         {/* Center - Navigation Menu */}
         <div className="flex items-center space-x-12 text-sm text-gray-300">
-          <Link href="#" className="hover:text-white transition-colors">
+          <button
+            onClick={() => isLoggedIn ? router.push("/storage") : router.push("/login")}
+            className="hover:text-white transition-colors cursor-pointer"
+          >
             Storage
-          </Link>
-          <Link href="/video-result" className="hover:text-white transition-colors">
-            Video Result
-          </Link>
-          <Link href="#" className="hover:text-white transition-colors">
-            Text
-          </Link>
-          <Link href="#" className="hover:text-white transition-colors">
-            Video
-          </Link>
+          </button>
+          <button
+            onClick={() => isLoggedIn ? router.push("/video-result") : router.push("/login")}
+            className="hover:text-white transition-colors cursor-pointer"
+          >
+            Analyze
+          </button>
         </div>
 
-        {/* Right - Login Button */}
-        <Button variant="outline" className="border-gray-600 text-white hover:bg-gray-700 bg-transparent">
-          Login
-        </Button>
+        {/* Right - Login Button or User Menu */}
+        {isLoggedIn ? (
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center space-x-2 text-white hover:text-gray-300 transition-colors"
+            >
+              <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-pink-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                {username.charAt(0).toUpperCase()}
+              </div>
+            </button>
+            
+            {showUserMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg border border-gray-700 py-2">
+                <div className="px-4 py-2 text-sm text-gray-300 border-b border-gray-700">
+                  {username}
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition-colors"
+                >
+                  로그아웃
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <Link href="/login">
+            <Button variant="outline" className="border-gray-600 text-white hover:bg-gray-700 bg-transparent">
+              Login
+            </Button>
+          </Link>
+        )}
       </nav>
 
       {/* Hero Section */}
@@ -101,7 +207,7 @@ export default function MainPage() {
           </div>
 
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            Video Finder
+            Clip Haus
             <br />
             Search Quickly
           </h1>
@@ -115,13 +221,7 @@ export default function MainPage() {
           </p>
 
           {/* 숨겨진 파일 입력 요소 */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept="video/*"
-            className="hidden"
-          />
+          <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="video/*" className="hidden" />
 
           <Button
             onClick={handleButtonClick}
