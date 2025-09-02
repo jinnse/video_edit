@@ -1,0 +1,19 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "video-stack"
+resolve_s3 = true
+region = "ap-northeast-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
+disable_rollback = true
+image_repositories = []
+parameter_overrides = [
+  "StepFunctionName=VideoProcessingWorkflow",
+  "InputBucketName=",
+  "OutputBucketName=,
+  "EventBridgeName=call_stepfunction",
+  "s3inputpath=original/",
+  "TranscribeName=Transcribe_Lambda",
+  "MediaConvertName=MediaConvert_Lambda"
+]

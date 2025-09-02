@@ -1,0 +1,76 @@
+# 이 AWS SAM 템플릿은 함수의 구성에서 생성되었습니다. 함수에 트리거가 하나 이상 있는 경우 이러한 트리거와 관련된 AWS 리소스가 이
+# 템플릿에 완전히 지정되어 있지 않으며 자리 표시자 값도 포함된다는 점에 유의하십시오. AWS Infrastructure Composer 또는
+# 선호하는 IDE에서 이 템플릿을 열고 다른 AWS 리소스와 함께 서버리스 애플리케이션을 지정하도록 수정하십시오.
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: An AWS Serverless Application Model template describing your function.
+
+Parameters:
+  InputBucketName:
+    Type: String
+    Description: "S3 버킷 이름"
+  OutputBucketName:
+    Type: String
+    Description: "S3 출력 버킷 이름"
+  TranscribeName:
+    Type: String
+
+Resources:
+  transcribe:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Ref TranscribeName
+      CodeUri: .
+      Description: ''
+      MemorySize: 128
+      Timeout: 3
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      Architectures:
+        - x86_64
+      EphemeralStorage:
+        Size: 512
+      EventInvokeConfig:
+        MaximumEventAgeInSeconds: 21600
+        MaximumRetryAttempts: 2
+      PackageType: Zip
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:ListBucket
+                - s3:PutObject
+              Resource:
+                - !Sub arn:aws:s3:::${InputBucketName}
+                - !Sub arn:aws:s3:::${InputBucketName}/*
+                - !Sub arn:aws:s3:::${OutputBucketName}
+                - !Sub arn:aws:s3:::${OutputBucketName}/*
+            - Effect: Allow
+              Action:
+                - transcribe:StartTranscriptionJob
+                - transcribe:GetTranscriptionJob
+                - transcribe:ListTranscriptionJobs
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+            - Effect: Allow
+              Action:
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource:
+                - >-
+                  !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${TranscribeName}:*
+      RecursiveLoop: Terminate
+      SnapStart:
+        ApplyOn: None
+      RuntimeManagementConfig:
+        UpdateRuntimeOn: Auto

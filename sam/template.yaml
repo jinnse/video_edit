@@ -2,28 +2,67 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Root SAM Stack for Video Pipeline
 
+Parameters:
+  StepFunctionName:
+    Type: String
+    Description: "Step Function workflow name"
+  InputBucketName:
+    Type: String
+    Description: "S3 버킷 이름" 
+  OutputBucketName:
+    Type: String
+    Description: "S3 출력 버킷 이름"
+  EventBridgeName:
+    Type: String
+    Description: "EventBridge Rule 이름"
+  s3inputpath:
+    Type: String
+    Description: "S3 입력 경로"
+  TranscribeName:
+    Type: String
+    Description: "Transcribe Lambda 함수 이름"
+  MediaConvertName:
+    Type: String
+    Description: "MediaConvert Lambda 함수 이름"
+
 Resources:
   S3EventBridgeModule:
     Type: AWS::Serverless::Application
     Properties:
       Location: ./modules/eventbridge/template.yaml
-
-  SQSModule:
-    Type: AWS::Serverless::Application
-    Properties:
-      Location: ./modules/sqs/template.yaml
+      Parameters:
+        StepFunctionName: !Ref StepFunctionName
+        InputBucketName: !Ref InputBucketName
+        EventBridgeName: !Ref EventBridgeName
+        s3inputpath: !Ref s3inputpath
+    DependsOn: StepFunctionsModule
 
   TranscribeLambdaModule:
     Type: AWS::Serverless::Application
     Properties:
       Location: ./modules/lambdas/transcribe_lambda/template.yaml
+      Parameters:
+        InputBucketName: !Ref InputBucketName
+        OutputBucketName: !Ref OutputBucketName
+        TranscribeName: !Ref TranscribeName
 
   MediaConvertLambdaModule:
     Type: AWS::Serverless::Application
     Properties:
       Location: ./modules/lambdas/mediaconvert_lambda/template.yaml
+      Parameters:
+        InputBucketName: !Ref InputBucketName
+        OutputBucketName: !Ref OutputBucketName
+        MediaConvertName: !Ref MediaConvertName
 
   StepFunctionsModule:
     Type: AWS::Serverless::Application
     Properties:
       Location: ./modules/stepfunctions/template.yaml
+      Parameters:
+        transcribeName: !Ref TranscribeName
+        mediaConvertName: !Ref MediaConvertName
+    DependsOn:
+      - MediaConvertLambdaModule
+      - TranscribeLambdaModule
+

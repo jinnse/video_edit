@@ -1,0 +1,9 @@
+{
+  "StepFunctionName": "VideoProcessingWorkflow",
+  "InputBucketName": "video-input-pipeline-5111",
+  "OutputBucketName": "video-output-pipeline-5111",
+  "eventbridgeName": "call_stepfunction",
+  "s3_input_path": "original/",
+  "transcribeName": "Transcribe_Lambda",
+  "mediaConvertName": "MediaConvert_Lambda"
+}
