@@ -24,6 +24,56 @@ Parameters:
   MediaConvertName:
     Type: String
     Description: "MediaConvert Lambda 함수 이름"
+# 공통
+  DataBucketName:        { Type: String }
+  DataPrefix:            { Type: String, Default: "converted/" }  # converted/로 통일
+
+  # Pegasus 공통
+  PegasusProfileName:    { Type: String, Default: "apac.twelvelabs.pegasus-1-2-v1:0" }
+  PegasusAgentVersion:   { Type: String, Default: "DRAFT" }
+  FoundationModelId:     { Type: String, Default: "anthropic.claude-3-7-sonnet-20250219-v1:0" }
+
+  # Shorts / Transcribe 등에서 쓰는 입출력 버킷
+  InputBucketName:       { Type: String, Default: "" }   # 옵션 A로 비워둘 수 있게
+  InputPrefix:           { Type: String, Default: "original/" }
+  OutputBucketName:      { Type: String, Default: "" }   # 옵션 A로 비워둘 수 있게
+
+  # 새로 추가 (권장 프리픽스)
+  CutOutputPrefix:       { Type: String, Default: "output/" }
+  ConvertPrefix:         { Type: String, Default: "converted/" }
+  TranscribePrefix:      { Type: String, Default: "transcribe/" }
+
+  # 에이전트 공통
+  AgentVersion:          { Type: String, Default: "DRAFT" }
+  AgentModelId:          { Type: String, Default: "anthropic.claude-3-7-sonnet-20250219-v1:0" }
+
+  # Cut* 계열
+  VideoBucketName:       { Type: String, Default: "" }
+  MediaConvertRoleArn:   { Type: String, Default: "" }
+  EnableTranscribeCut: { Type: String, AllowedValues: ["true","false"], Default: "true" }
+
+  AgentModelId:
+    Type: String
+    Default: ""   # 온디맨드 모델 쓸 때만 사용
+  AgentInferenceProfileId:
+    Type: String
+    Default: ""   # 프로파일 사용할 때 여기에 값(예: apac.anthropic.claude-3-5-...
+
+  # 옵션 A: 앞단 연동(버킷/이벤트 등) 끄기/켜기
+  EnableIntegrations:
+    Type: String
+    AllowedValues: [true, false]
+    Default: false
+
+Conditions:
+  UseIntegrations: !Equals [!Ref EnableIntegrations, "true"]
+  DoShorts:     !Equals [ !Ref EnableShorts,     "true" ]
+  DoSummary:    !Equals [ !Ref EnableSummary,    "true" ]
+  DoTranscribe: !Equals [ !Ref EnableTranscribe, "true" ]
+  DoCutShorts: !Equals [ !Ref EnableCutShorts, "true" ]
+  DoPegasus:    !Equals [ !Ref EnablePegasus,    "true" ]
+  DoCutTranscribe: !Equals [ !Ref EnableCutTranscribe, "true" ]
+  UseInferenceProfile: !Not [!Equals [!Ref AgentInferenceProfileId, ""]]
 
 Resources:
   S3EventBridgeModule:
@@ -65,4 +115,137 @@ Resources:
     DependsOn:
       - MediaConvertLambdaModule
       - TranscribeLambdaModule
+
+    # # ── Transcribe (항상 생성) ──
+  TranscribeActionGroup:
+    Condition: DoTranscribe
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/bedrock/transcribe/action_group/template.yaml
+      Parameters:
+        # OutputBucketName이 비어도(옵션 A) 배포는 진행되게 하되,
+        # nested 템플릿이 '필수'로 강제하면 값 꼭 넣어야 함.
+        OutputBucketName: !Ref OutputBucketName
+  TranscribeAgent:
+    Condition: DoTranscribe
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/bedrock/transcribe/agent/template.yaml
+      Parameters:
+        TranscribeLambdaArn: !GetAtt TranscribeActionGroup.Outputs.TranscribeLambdaAliasArn
+        AgentVersion:        !Ref AgentVersion
+        AgentModelId:        !Ref AgentModelId
+
+  # ── Summary ────────────────────────────────────────────────────────────
+  SummaryActionGroup:
+    Condition: DoSummary
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/bedrock/summary/action_group/template.yaml
+      Parameters:
+        # Action Group이 요구하는 파라미터 이름에 맞춰 전달
+        DataBucketName: !Ref OutputBucketName         
+        DataPrefix:     !Ref TranscribePrefix         
+
+  SummaryAgent:
+    Condition: DoSummary
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/bedrock/summary/agent/template.yaml
+      Parameters:
+        SummaryLambdaArn: !GetAtt SummaryActionGroup.Outputs.SummaryLambdaAliasArn
+        AgentVersion:     !Ref AgentVersion        
+        AgentModelId:     !Ref AgentModelId          
+
+  # ── Shorts ─────────────────────────────────────────────────────────────
+  ShortsActionGroup1:
+    Condition: DoShorts
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/bedrock/shorts/action_group_1/template.yaml
+      Parameters:
+        OutputBucketName: !Ref OutputBucketName
+
+  ShortsActionGroup2:
+    Condition: DoShorts
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/bedrock/shorts/action_group_2/template.yaml
+      Parameters:
+        InputBucketName:    !Ref InputBucketName
+        InputPrefix:        !Ref InputPrefix
+        PegasusProfileName: !Ref PegasusProfileName
+
+  ShortsAgent:
+    Condition: DoShorts
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/bedrock/shorts/agent/template.yaml
+      Parameters:
+        Shorts1LambdaArn: !GetAtt ShortsActionGroup1.Outputs.Shorts1LambdaAliasArn
+        Shorts2LambdaArn: !GetAtt ShortsActionGroup2.Outputs.Shorts2LambdaAliasArn
+        AgentVersion:     !Ref AgentVersion
+        AgentModelId:     !Ref AgentModelId
+
+  # ── Pegasus ────────────────────────────────────────────────────────────
+  PegasusAction:
+    Condition: DoPegasus
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/bedrock/pegasus/action_group/template.yaml
+      Parameters:
+        DataBucketName:     !Ref DataBucketName
+        DataPrefix:         !Ref DataPrefix
+        PegasusProfileName: !Ref PegasusProfileName
+
+  PegasusAgent:
+    Condition: DoPegasus
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/bedrock/pegasus/agent/template.yaml
+      Parameters:
+        # 🔧 원본 오타 수정: PegasusActionGroup → PegasusAction
+        PegasusLambdaArn:  !GetAtt PegasusAction.Outputs.PegasusLambdaAliasArn
+        AgentVersion:      !Ref PegasusAgentVersion
+        FoundationModelId: !Ref FoundationModelId
+
+  # ── Cut Shorts ─────────────────────────────────────────────────────────
+  CutShortsActionGroup:
+    Condition: DoCutShorts
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/bedrock/cut_shorts/action_group/template.yaml
+      Parameters:
+        VideoBucketName:     !Ref VideoBucketName
+        MediaConvertRoleArn: !Ref MediaConvertRoleArn
+
+  CutShortsAgent:
+    Condition: DoCutShorts
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/bedrock/cut_shorts/agent/template.yaml
+      Parameters:
+        CutShortsLambdaArn: !GetAtt CutShortsActionGroup.Outputs.CutShortsLambdaAliasArn
+        AgentVersion:       !Ref AgentVersion
+        AgentModelId:       !Ref AgentModelId
+
+  # ── Cut Transcribe ─────────────────────────────────────────────────────
+  CutTranscribeActionGroup:
+    Condition: DoCutTranscribe
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/bedrock/cut_transcribe/action_group/template.yaml
+      Parameters:
+        VideoBucketName:     !Ref VideoBucketName
+        MediaConvertRoleArn: !Ref MediaConvertRoleArn
+
+  CutTranscribeAgent:
+    Condition: DoCutTranscribe
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./modules/bedrock/cut_transcribe/agent/template.yaml
+      Parameters:
+        CutTranscribeLambdaArn: !GetAtt CutTranscribeActionGroup.Outputs.CutTranscribeLambdaAliasArn
+        AgentVersion:           !Ref AgentVersion
+        AgentModelId:           !Ref AgentModelId
 
