@@ -57,8 +57,10 @@ AI 기반 영상 분석 및 자동 쇼츠 제작 플랫폼
 ## 주요 기능 처리 과정
 # MediaConvert
 <img width="969" height="410" alt="cliphaus_mediaconvert" src="https://github.com/user-attachments/assets/ec064ba8-ea10-4249-ba89-fcba1063f5e3" />
+
 # Transcribe
 <img width="1073" height="465" alt="cliphaus_transcribe" src="https://github.com/user-attachments/assets/6fde4caa-b58f-487b-a6a5-720e0a21d3ba" />
+
 # Pegasus
 <img width="978" height="448" alt="cliphaus_pegasus" src="https://github.com/user-attachments/assets/4b356427-d054-451a-8331-fb63ba9b4500" />
 
