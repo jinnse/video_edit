@@ -9,20 +9,23 @@
 - 영상을 ai로 분석하고 빠르게 쇼츠 제작
 - 필요한 장면, 대사 부분만 추출해 소스로 사용 가능
 ## 아키텍처
-video_edit/cliphaus_architect.png
+
 ## 서비스 처리 흐름 (Processing Flow)
 1️⃣ 사용자가 영상을 업로드하면 → S3 버킷에 저장됩니다.  
 2️⃣ 업로드 이벤트를 감지한 Stepfunction이 실행 -> s3 에 저장  
    - MediaConvert로 영상 변환 및 저장  
    - Transcribe가 음성을 텍스트로 변환해 json 파일로 저장 (timestamp, 요약 내용)
+
 3️⃣ 프론트엔드에서 사용자가 영상을 선택 후 자연어로 입력   
 4️⃣ 각 기능에 맞게 Bedrock Flow에서 분배
   - 장면 탐지 : Twelvelabs Pegasus를 이용하여 해당 장면 탐지
   - 대사 탐지 : Transcribe로 변환된 json을 이용하여 해당 대사 탐지
   - 요약 : Transcribe로 변환된 json을 이용하여 영상 요약
   - 쇼츠 생성 : Pegasus와 Transcribe를 이용하여 쇼츠 제작
+
 5️⃣ 각 기능의 결과 값을 json으로 받아 영상 편집 에이전트를 통해 영상 추출
   - 텍스트 or 영상 장면을 확인하여 timestamp 시간대와 일치하는 영상을 편집하여 영상으로 추출
+
 6️⃣ 최종 결과가 프론트엔드에서 표시됩니다.
 
 ##  디렉토리 구조
