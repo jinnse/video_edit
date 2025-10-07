@@ -17,3 +17,295 @@ parameter_overrides = [
   "TranscribeName=Transcribe_Lambda",
   "MediaConvertName=MediaConvert_Lambda"
 ]
+
+[dev-all.deploy.parameters]
+template_file = "template.yaml"                     # 루트 템플릿
+stack_name = "video-bedrock-dev"
+region = "ap-northeast-2"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = [
+  # 전체 on/off 스위치
+  "EnableTranscribe=true",
+  "EnableSummary=true",
+  "EnableShorts=true",
+  "EnableCutShorts=true",
+  "EnableCutTranscribe=true",
+  "EnablePegasus=true",
+
+  # 공통 버킷/프리픽스
+  "InputBucketName=video-input-pipeline-20250724",
+  "InputPrefix=original/",
+  "OutputBucketName=video-output-pipeline-20250724",
+  "DataBucketName=video-output-pipeline-20250724",
+  "DataPrefix=converted/",
+
+  # Cut* 공통
+  "VideoBucketName=video-input-pipeline-20250724",
+  "MediaConvertRoleArn=arn:aws:iam::567279714866:role/MediaConvertServiceRole",
+
+  # 모델/버전
+  "AgentVersion=DRAFT",
+  "AgentModelId=anthropic.claude-3-7-sonnet-20250219-v1:0",
+  "PegasusProfileName=apac.twelvelabs.pegasus-1-2-v1:0",
+  "PegasusAgentVersion=DRAFT",
+  "FoundationModelId=anthropic.claude-3-7-sonnet-20250219-v1:0"
+]
+
+# ── ALL-IN-ONE: PROD ──
+[prod-all.deploy.parameters]
+template_file = "template.yaml"
+stack_name = "video-bedrock-prod"
+region = "ap-northeast-2"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = true
+fail_on_empty_changeset = false
+parameter_overrides = [
+  "EnableTranscribe=true",
+  "EnableSummary=true",
+  "EnableShorts=true",
+  "EnableCutShorts=true",
+  "EnableCutTranscribe=true",
+  "EnablePegasus=true",
+
+  "InputBucketName=prod-video-input-bucket",
+  "InputPrefix=original/",
+  "OutputBucketName=prod-video-output-bucket",
+  "DataBucketName=prod-video-output-bucket",
+  "DataPrefix=converted/",
+
+  "VideoBucketName=prod-video-input-bucket",
+  "MediaConvertRoleArn=arn:aws:iam::<PROD_ACCOUNT_ID>:role/MediaConvertServiceRole",
+
+  "AgentVersion=1",
+  "AgentModelId=anthropic.claude-3-7-sonnet-20250219-v1:0",
+  "PegasusProfileName=apac.twelvelabs.pegasus-1-2-v1:0",
+  "PegasusAgentVersion=1",
+  "FoundationModelId=anthropic.claude-3-7-sonnet-20250219-v1:0"
+]
+
+# ── TRANSCRIBE 모듈 ──
+[dev-transcribe.deploy.parameters]
+template_file = "template.yaml"                          # ← 루트 템플릿
+stack_name = "bedrock-transcribe-dev"
+region = "ap-northeast-2"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = [
+  "EnableTranscribe=true",                               # ← Condition 켜기 (중요)
+  "OutputBucketName=video-output-pipeline-20250724",     # AG가 요구
+  "DataBucketName=video-input-pipeline-20250724",        # 필요시
+  "DataPrefix=original/",                                # 필요시
+  "AgentVersion=DRAFT",
+  "AgentModelId=anthropic.claude-3-7-sonnet-20250219-v1:0",
+  "DataBucketName=video-output-pipeline-20250724",
+  "DataPrefix=original/"  
+]
+[prod-transcribe.deploy.parameters]
+stack_name = "bedrock-transcribe-prod"
+region = "ap-northeast-2"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = [
+  "OutputBucketName=prod-video-output-bucket",
+  "AgentVersion=1",
+  "AgentModelId=anthropic.claude-3-7-sonnet-20250219-v1:0"
+]
+
+# ── SUMMARY 모듈 ──
+[dev-summary.deploy.parameters]
+template_file = "modules/bedrock/summary/agent/template.yaml"
+stack_name = "bedrock-summary-dev"
+region = "ap-northeast-2"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = [
+  "AgentVersion=DRAFT",
+  "AgentModelId=anthropic.claude-3-5-sonnet-20241022-v2:0",
+  "OutputBucketName=video-output-pipeline-20250724",
+  "DataBucketName=video-output-pipeline-20250724",
+  "DataPrefix=original/"
+]
+
+[prod-summary.deploy.parameters]
+stack_name = "bedrock-summary-prod"
+region = "ap-northeast-2"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = [
+  "AgentVersion=1",
+  "AgentModelId=anthropic.claude-3-5-sonnet-20241022-v2:0",
+  "OutputBucketName=prod-video-output-bucket",
+  "DataBucketName=prod-video-output-bucket",
+  "DataPrefix=original/"
+]
+
+# ── SHORTS 모듈 ──
+[dev-shorts.deploy.parameters]
+template_file = "template.yaml"              # 루트 템플릿
+stack_name = "shorts-root-dev"
+region = "ap-northeast-2"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = [
+  "EnableShorts=true",
+  "OutputBucketName=video-output-pipeline-20250724",
+  "InputBucketName=video-input-pipeline-20250724",
+  "InputPrefix=original/",
+  "PegasusProfileName=apac.twelvelabs.pegasus-1-2-v1:0",
+  "AgentVersion=DRAFT",
+  "AgentModelId=anthropic.claude-3-haiku-20240307-v1:0",
+  "DataBucketName=prod-video-output-bucket",
+  "DataPrefix=original/"
+]
+
+[prod-shorts.deploy.parameters]
+stack_name = "shorts-agent-prod"
+region = "ap-northeast-2"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = [
+  "OutputBucketName=prod-video-output-bucket",
+  "InputBucketName=prod-video-input-bucket",
+  "InputPrefix=original/",
+  "PegasusProfileName=apac.twelvelabs.pegasus-1-2-v1:0",
+  "AgentVersion=1",
+  "AgentModelId=anthropic.claude-3-7-sonnet-20250219-v1:0"
+]
+
+# ── CUT TRANSCRIBE ──
+[dev-cuttranscribe.deploy.parameters]
+template_file = "template.yaml"  # (루트 템플릿 경로)
+stack_name = "cuttranscribe-dev"
+region = "ap-northeast-2"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = [
+  "VideoBucketName=video-input-pipeline-20250724",
+  "MediaConvertRoleArn=arn:aws:iam::567279714866:role/MediaConvertServiceRole",
+  "EnableTranscribeCut=true",
+  "AgentVersion=DRAFT",
+  "AgentModelId=anthropic.claude-3-5-sonnet-20241022-v2:0",
+  "DataBucketName=video-output-pipeline-20250724",
+  "DataPrefix=original/"
+]
+
+[prod-cuttranscribe.deploy.parameters]
+template_file = "template.yaml"
+stack_name = "cuttranscribe-prod"
+region = "ap-northeast-2"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = [
+  "VideoBucketName=prod-video-bucket",
+  "MediaConvertRoleArn=arn:aws:iam::<PROD_ACCOUNT_ID>:role/MediaConvertServiceRole",
+  "EnableTranscribeCut=true",
+  "AgentVersion=1",
+  "AgentModelId=anthropic.claude-3-5-sonnet-20241022-v2:0"
+]
+
+# ── CUT SHORTS (root stack) ──
+[dev-cutshorts.deploy.parameters]
+template_file = "template.yaml"                      # ← 루트
+stack_name = "cutshorts-root-dev"
+region = "ap-northeast-2"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = [
+  "EnableCutShorts=true",                            # ← Condition on
+  "VideoBucketName=video-input-pipeline-20250724",
+  "MediaConvertRoleArn=arn:aws:iam::567279714866:role/MediaConvertServiceRole",
+  "AgentVersion=DRAFT",
+  "AgentModelId=anthropic.claude-3-haiku-20240307-v1:0",
+  "DataBucketName=video-output-pipeline-20250724",
+  "DataPrefix=original/"
+]
+
+[prod-cutshorts.deploy.parameters]
+template_file = "template.yaml"
+stack_name = "cutshorts-root-prod"
+region = "ap-northeast-2"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = [
+  "EnableCutShorts=true",
+  "VideoBucketName=prod-video-bucket",
+  "MediaConvertRoleArn=arn:aws:iam::<PROD_ACCOUNT_ID>:role/MediaConvertServiceRole",
+  "AgentVersion=1",
+  "AgentModelId=anthropic.claude-3-haiku-20240307-v1:0",
+  "DataBucketName=video-output-pipeline-20250724",
+  "DataPrefix=original/"
+]
+
+# ── PEGASUS 전용 배포 ──
+[dev-pegasus.deploy.parameters]
+template_file = "template.yaml"
+stack_name = "pegasus-root-dev"
+region = "ap-northeast-2"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = [
+  "EnableShorts=false",
+  "EnableSummary=false",
+  "EnableTranscribe=false",
+  "EnablePegasus=true",
+
+  # Pegasus 액션 그룹 파라미터 (DEV)
+  "DataBucketName=video-input-pipeline-20250724",
+  "DataPrefix=original/",
+  "PegasusProfileName=apac.twelvelabs.pegasus-1-2-v1:0",
+
+  # 에이전트 파라미터
+  "PegasusAgentVersion=DRAFT",
+  "FoundationModelId=anthropic.claude-3-7-sonnet-20250219-v1:0"
+]
+
+# ── PEGASUS PROD 배포 ──
+[prod-pegasus.deploy.parameters]
+template_file = "template.yaml"
+stack_name = "pegasus-root-prod"
+region = "ap-northeast-2"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = [
+  "EnableShorts=false",
+  "EnableSummary=false",
+  "EnableTranscribe=false",
+  "EnablePegasus=true",
+
+  # Pegasus 액션 그룹 파라미터 (PROD)
+  "DataBucketName=prod-video-input-bucket",
+  "DataPrefix=original/",
+  "PegasusProfileName=apac.twelvelabs.pegasus-1-2-v1:0",
+
+  # 에이전트 파라미터
+  "PegasusAgentVersion=1",
+  "FoundationModelId=anthropic.claude-3-7-sonnet-20250219-v1:0"
+]
