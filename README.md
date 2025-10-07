@@ -22,7 +22,7 @@ AI 기반 영상 분석 및 자동 쇼츠 제작 플랫폼
 ---
 
 ## 아키텍처
-
+<img width="744" height="496" alt="cliphaus_architect" src="https://github.com/user-attachments/assets/84e105aa-3aa5-4bff-8145-00aa46af7ff7" />
 
 ---
 
