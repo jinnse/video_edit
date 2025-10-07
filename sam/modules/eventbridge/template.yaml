@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: EventBridge Rule for calling Step Function
+
+Parameters:
+  StepFunctionName:
+    Type: String
+  InputBucketName:
+    Type: String
+  EventBridgeName:
+    Type: String
+  s3inputpath:
+    Type: String
+
+Resources:
+  CallStepFunctionRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Ref EventBridgeName
+      Description: Step Function을 호출하는 규칙
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - Object Created
+        detail:
+          bucket:
+            name:
+              - !Ref InputBucketName
+          object:
+            key:
+              - prefix: !Ref s3inputpath
+      State: ENABLED
+      Targets:
+        - Id: StepFunctionTarget
+          Arn: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${StepFunctionName}
+          RoleArn: !GetAtt StartStepFunctionRole.Arn
+
+  ### Step Function 호출용 IAM Role
+  StartStepFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StartStepFunctionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource: !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${StepFunctionName}
