@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: cut_shorts action group (MediaConvert Assembly Workflow)
+
+Parameters:
+  VideoBucketName:     { Type: String }
+  MediaConvertRoleArn: { Type: String }
+
+Resources:
+  CutShortsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: cutshorts.lambda_handler          # ← src/cut_shorts.py
+      Runtime: python3.12
+      MemorySize: 1024
+      Timeout: 900
+      AutoPublishAlias: live
+      Environment:
+        Variables:
+          VIDEO_BUCKET:          !Ref VideoBucketName       # (코드가 하드코딩이면 현재는 미사용)
+          MEDIACONVERT_ROLE_ARN: !Ref MediaConvertRoleArn   # (위와 동일)
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            # S3 R/W (입출력 버킷 동일 가정)
+            - Sid: S3RWVideoBucket
+              Effect: Allow
+              Action:
+                - s3:ListBucket
+                - s3:GetBucketLocation
+              Resource: !Sub "arn:aws:s3:::${VideoBucketName}"
+            - Sid: S3ObjectsRW
+              Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+                - s3:DeleteObject
+              Resource: !Sub "arn:aws:s3:::${VideoBucketName}/*"
+
+            # MediaConvert 잡 실행/조회
+            - Sid: MediaConvertJobs
+              Effect: Allow
+              Action:
+                - mediaconvert:CreateJob
+                - mediaconvert:GetJob
+                - mediaconvert:ListJobs
+                - mediaconvert:DescribeEndpoints
+              Resource: "*"
+
+            # MediaConvert 서비스 역할 전달
+            - Sid: PassMediaConvertRole
+              Effect: Allow
+              Action: iam:PassRole
+              Resource: !Ref MediaConvertRoleArn
+
+        - AWSLambdaBasicExecutionRole
+
+Outputs:
+  CutShortsLambdaAliasArn:
+    Value: !Sub '${CutShortsLambda.Arn}:live'

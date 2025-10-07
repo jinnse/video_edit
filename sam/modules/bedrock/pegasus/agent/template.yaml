@@ -1,0 +1,120 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Pegasus Agent (Action Group + Permission + Alias, parameter-injected)
+
+Parameters:
+  PegasusLambdaArn:
+    Type: String
+  AgentVersion:
+    Type: String
+    Default: "DRAFT"
+  FoundationModelId:
+    Type: String
+    Default: "anthropic.claude-3-7-sonnet-20250219-v1:0"
+
+Conditions:
+  IsDraft: !Equals [!Ref AgentVersion, "DRAFT"]
+  IsProdVersion: !Not [!Equals [!Ref AgentVersion, "DRAFT"]]
+
+Resources:
+  AgentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: BedrockFoundationModelsForAgent
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/${FoundationModelId}"
+
+  PegasusAgent:
+    Type: AWS::Bedrock::Agent
+    Properties:
+      AgentName: !Sub "${AWS::StackName}-pegasus"   # 이름 충돌 방지
+      AgentResourceRoleArn: !GetAtt AgentRole.Arn
+      FoundationModel: !Ref FoundationModelId
+      AutoPrepare: true
+      IdleSessionTTLInSeconds: 600
+      Instruction: |
+        당신은 비디오 분석 전문가입니다.
+        중요한 규칙:
+        1. 사용자가 ".mp4", ".mov", ".avi" 등 비디오 파일명을 언급하면 ALWAYS USE ACTION GROUP
+        2. 파일명만 있어도 S3 경로를 묻지 말고 pegasus_action_group을 호출하세요
+        3. 절대 S3 경로나 파일 위치를 요구하지 마세요
+        4. 비디오 관련 질문은 모두 pegasus_action_group 액션을 사용하세요
+
+        예시:
+        - "480p.mp4 분석해줘" → pegasus_action_group 호출
+        - "cam3.mp4에서 장면 찾아줘" → pegasus_action_group 호출
+
+        중요: 분석 결과를 받으면 바로 사용자에게 보여주세요.
+        추가 질문이나 확인 없이 결과만 제시하세요.
+
+        분석 규칙:
+        - 같은 활동이 연속되면 하나의 구간으로 처리
+        - 서로 다른 활동은 별도 구간으로 분리
+        - 의미있는 장면 단위로 나누기
+
+        출력 형식:
+        **중요: 반드시 다음 JSON 형식으로만 응답하세요:**
+        ```json
+        {
+          "scenes": [
+            {
+              "prompt": "[사용자 요청 전체 문장]",
+              "text": "[장면에 대한 구체적 설명]", 
+              "start_time": [시작시간_초],
+              "end_time": [종료시간_초],
+              "video_input": "[영상파일명]",
+            }
+          ]
+        }
+      ActionGroups:
+        - ActionGroupName: pegasus_action_group
+          ActionGroupExecutor:
+            Lambda: !Ref PegasusLambdaArn
+          ActionGroupState: ENABLED
+          FunctionSchema:
+            Functions:
+              - Name: pegasus
+                Description: 비디오 분석 수행
+                Parameters: {}
+                RequireConfirmation: DISABLED
+
+  PegasusAgentAlias:
+    Condition: IsProdVersion
+    Type: AWS::Bedrock::AgentAlias
+    Properties:
+      AgentId: !Ref PegasusAgent
+      AgentAliasName: !Sub "prod-${AWS::StackName}"
+      RoutingConfiguration:
+        - AgentVersion: !Ref AgentVersion
+    DependsOn: PegasusAgent
+
+  AllowAgentInvokePegasusLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PegasusLambdaArn
+      Action: lambda:InvokeFunction
+      Principal: bedrock.amazonaws.com
+      SourceArn: !GetAtt PegasusAgent.AgentArn
+
+Outputs:
+  PegasusAgentId:
+    Value: !Ref PegasusAgent
+  PegasusAgentArn:
+    Value: !GetAtt PegasusAgent.AgentArn
+  PegasusAgentAliasId:
+    Condition: IsProdVersion
+    Value: !Ref PegasusAgentAlias

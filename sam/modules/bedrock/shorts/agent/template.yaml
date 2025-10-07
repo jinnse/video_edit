@@ -1,0 +1,181 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: shorts Agent (two action groups, no alias)
+
+Parameters:
+  Shorts1LambdaArn: { Type: String }   # ← AG1 Output(:live)
+  Shorts2LambdaArn: { Type: String }   # ← AG2 Output(:live)
+  AgentVersion:     { Type: String, Default: "DRAFT" }
+  AgentModelId:     { Type: String, Default: "anthropic.claude-3-haiku-20240307-v1:0" }
+
+Resources:
+  ShortsAgentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - bedrock.amazonaws.com
+                - agents.bedrock.amazonaws.com
+            Action: sts:AssumeRole
+
+      Policies:
+        # A) 프로파일을 쓰는 경우: 프로파일 + 관련 foundation-model 권한
+        - PolicyName: AgentBedrockViaProfile
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # 1) Inference Profile 자체에 대한 호출 권한
+              - Sid: InvokeThroughProfile
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: !If
+                  - UseInferenceProfile
+                  - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${AgentInferenceProfileId}"
+                  - !Ref "AWS::NoValue"
+
+              # 2) 프로파일 메타 조회(필수)
+              - Sid: ProfileMeta
+                Effect: Allow
+                Action:
+                  - bedrock:GetInferenceProfile
+                  - bedrock:ListInferenceProfiles
+                Resource: "*"
+
+              # 3) 프로파일이 내부적으로 라우팅할 foundation-model ARNs
+              #    (프로파일 상세에서 실제 대상 리전/모델을 확인해 정확히 채워주세요)
+              - Sid: BackendFoundationModels
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - arn:aws:bedrock:ap-northeast-2::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0
+                  - arn:aws:bedrock:ap-northeast-1::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0
+                  - arn:aws:bedrock:ap-southeast-1::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0
+
+        # B) on-demand 모델을 쓸 때만: 기존 정책 유지
+        - PolicyName: AgentFoundationModelOnDemand
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: InvokeFoundationModelDirect
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: !If
+                  - UseInferenceProfile
+                  - !Ref "AWS::NoValue"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/${AgentModelId}"
+
+  ShortsAgent:
+    Type: AWS::Bedrock::Agent
+    Properties:
+      AgentName: !Sub "${AWS::StackName}-shorts"
+      AgentResourceRoleArn: !GetAtt ShortsAgentRole.Arn
+      FoundationModel: !Ref AgentModelId
+      AutoPrepare: true
+      IdleSessionTTLInSeconds: 600
+      Instruction: |
+        # Shot Agent - 영상 분석 및 편집용 JSON 생성 전문가
+
+        당신은 영상 분석과 편집을 위한 Shot Agent입니다. 사용자 요청에 따라 영상을 분석하고 하이라이트 구간을 찾아 편집용 JSON을 생성합니다.
+
+        ## 작업 순서
+
+        ### 1단계: Transcribe 분석
+        - shorts_1 함수를 호출하여 영상의 음성/텍스트 내용 획득
+        - **영상 총 길이 확인** 및 영상 주제, 핵심 대상, 영상 성격 파악
+
+        ### 2단계: Pegasus 분석 (Rate Limit 대응)
+        - shorts_2 함수를 호출하여 "핵심 대상의 [사용자 요청] 찾아줘" 요청
+        - **Rate Limit 오류 (429) 발생시 즉시 폴백 전략**:
+          - transcribe 결과만으로 기본 구간 생성
+          - **영상 총 길이 내에서** 5개 구간으로 균등 분할
+          - 각 구간 10-15초 길이로 설정
+
+        ### 3단계: 시간값 검증 및 최종 JSON 생성
+        **필수 검증 규칙:**
+        - start_time >= 0
+        - end_time <= 영상 총 길이
+        - start_time < end_time
+        - end_time - start_time >= 0.1초
+        - 각 구간 10-15초 길이 유지
+        - **검증 실패시 영상 길이 내 안전한 구간으로 대체**
+
+        ## 출력 형식 (JSON만)
+        {
+          "scenes": [
+            {
+              "prompt": "[사용자 입력 전체 문장]",
+              "text": "[장면 설명]",
+              "start_time": 21.5,
+              "end_time": 35.0,
+              "video_input": "파일명.mp4"
+            }
+          ]
+        }
+
+        ## 출력 규칙
+        - 각 구간 10-15초 길이
+        - 총 3-5개 구간 선별
+        - **모든 시간값은 영상 총 길이 범위 내**
+        - 중복 방지: 30초 이내 겹치는 구간 중 하나만 선택
+        - 각 구간 사이 최소 1분 간격 유지
+        - JSON 형식으로만 응답, 부가 설명 금지
+
+        ## 핵심 규칙
+        - **영상 길이 초과 방지**: 모든 시간값 검증 필수
+        - Rate Limit 오류시 폴백 전략 즉시 실행
+        - 모든 응답은 유효한 JSON 형식
+        - prompt 필드에는 사용자 입력 원문 그대로
+      ActionGroups:
+        - ActionGroupName: shorts_stage1
+          ActionGroupExecutor: { Lambda: !Ref Shorts1LambdaArn }
+          ActionGroupState: ENABLED
+          FunctionSchema:
+            Functions:
+              - Name: shorts_stage1
+                Description: 숏츠 1단계 처리
+                Parameters: {}
+                RequireConfirmation: DISABLED
+        - ActionGroupName: shorts_stage2
+          ActionGroupExecutor: { Lambda: !Ref Shorts2LambdaArn }
+          ActionGroupState: ENABLED
+          FunctionSchema:
+            Functions:
+              - Name: shorts_stage2
+                Description: 숏츠 2단계 처리
+                Parameters: {}
+                RequireConfirmation: DISABLED
+
+  # Bedrock → Lambdas invoke 허용
+  AllowAgentInvokeShorts1:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref Shorts1LambdaArn
+      Action: lambda:InvokeFunction
+      Principal: bedrock.amazonaws.com
+      SourceArn: !GetAtt ShortsAgent.AgentArn
+      SourceAccount: !Ref AWS::AccountId
+
+  AllowAgentInvokeShorts2:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref Shorts2LambdaArn
+      Action: lambda:InvokeFunction
+      Principal: bedrock.amazonaws.com
+      SourceArn: !GetAtt ShortsAgent.AgentArn
+      SourceAccount: !Ref AWS::AccountId
+
+Outputs:
+  ShortsAgentId:
+    Value: !Ref ShortsAgent
+  ShortsAgentArn:
+    Value: !GetAtt ShortsAgent.AgentArn

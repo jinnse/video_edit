@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: shorts_2 action group (Pegasus analysis)
+
+Parameters:
+  InputBucketName:    { Type: String }                          # e.g. video-input-pipeline-20250724
+  InputPrefix:        { Type: String, Default: "original/" }
+  PegasusProfileName: { Type: String, Default: "apac.twelvelabs.pegasus-1-2-v1:0" }
+
+Resources:
+  Shorts2Lambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: shorts_2.lambda_handler        # ← src/shorts_2.py
+      Runtime: python3.12
+      MemorySize: 512
+      Timeout: 900
+      AutoPublishAlias: live
+      Environment:
+        Variables:
+          DEFAULT_S3_BUCKET: !Ref InputBucketName
+          DEFAULT_S3_PREFIX: !Ref InputPrefix
+          PEGASUS_PROFILE: !Ref PegasusProfileName
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            # Pegasus inference profile로 호출
+            - Sid: InvokePegasusProfile
+              Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${PegasusProfileName}"
+            # (옵션) foundation model 직접 호출도 허용하고 싶으면 유지
+            - Sid: InvokePegasusFoundationModel
+              Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource:
+                - arn:aws:bedrock:ap-northeast-2::foundation-model/twelvelabs.pegasus-1-2-v1:0
+            # 대상 S3 객체 유효성 검사용
+            - Sid: S3HeadOrReadInput
+              Effect: Allow
+              Action:
+                - s3:HeadObject
+                - s3:GetObject
+              Resource: !Sub "arn:aws:s3:::${InputBucketName}/*"
+        - AWSLambdaBasicExecutionRole
+  LambdaInvokeFromBedrock:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt Shorts2Lambda.Arn
+      Principal: bedrock.amazonaws.com
+
+Outputs:
+  Shorts2LambdaAliasArn:
+    Value: !Sub "${Shorts2Lambda.Arn}:live"

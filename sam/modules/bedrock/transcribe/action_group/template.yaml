@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: transcribe action group (Lambda executor)
+
+Parameters:
+  OutputBucketName: { Type: String }   # 예: video-output-pipeline-20250724
+  TranscribePrefix: { Type: String, Default: "transcribe/" }
+
+Resources:
+  TranscribeLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: transcribe.lambda_handler        # ← src/transcribe.py 기준
+      Runtime: python3.12
+      MemorySize: 512
+      Timeout: 900
+      AutoPublishAlias: live
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Sid: S3ReadTranscript
+              Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub "arn:aws:s3:::${OutputBucketName}/*"
+        - AWSLambdaBasicExecutionRole
+  LambdaInvokeFromBedrock:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt TranscribeLambda.Arn
+      Principal: bedrock.amazonaws.com
+
+Outputs:
+  TranscribeLambdaArn:
+    Value: !GetAtt TranscribeLambda.Arn
+  TranscribeLambdaAliasArn:
+    Value: !Sub '${TranscribeLambda.Arn}:live'

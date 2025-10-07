@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: cut_shorts Agent (no alias)
+
+Parameters:
+  CutShortsLambdaArn: { Type: String }                        # ← action_group Outputs(:live)
+  AgentVersion:       { Type: String, Default: "DRAFT" }      # (지금은 미사용; 추후 버전운용용)
+  AgentModelId:       { Type: String, Default: "anthropic.claude-3-haiku-20240307-v1:0" }
+
+Resources:
+  CutShortsAgentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: bedrock.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AgentFoundationModel
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [ bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream ]
+                Resource: !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/${AgentModelId}"
+        # (선택) 인퍼런스 프로파일 실제로 쓰면만 유지; 아니면 블록 통째로 주석 처리
+        - PolicyName: AgentInferenceProfilesCrossRegion
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                  - bedrock:GetInferenceProfile
+                  - bedrock:GetFoundationModel
+                Resource:
+                  - !Sub "arn:aws:bedrock:ap-northeast-2:${AWS::AccountId}:inference-profile/anthropic.claude-3-7-sonnet-20250219-v1:0"
+                  - !Sub "arn:aws:bedrock:ap-northeast-2:${AWS::AccountId}:inference-profile/apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
+                  - arn:aws:bedrock:*::foundation-model/anthropic.claude-3-haiku-20240307-v1:0
+
+  CutShortsAgent:
+    Type: AWS::Bedrock::Agent
+    Properties:
+      AgentName: !Sub "${AWS::StackName}-cut_shorts"   # ← 이름 충돌 방지
+      AgentResourceRoleArn: !GetAtt CutShortsAgentRole.Arn
+      FoundationModel: !Ref AgentModelId
+      AutoPrepare: true
+      IdleSessionTTLInSeconds: 600
+      Instruction: |
+        ### **Shot Agent 워크플로우**
+        당신은 영상 분석과 편집을 위한 Shot Agent입니다.
+        사용자의 요청에 따라 영상을 분석하고 하이라이트 구간을 찾아 MediaConvert Assembly Workflow용 JSON을 생성합니다.
+
+        ## 작업 순서:
+        1) Transcribe 분석 → 2) 내용 분석(주제/핵심 대상/성격) → 3) Pegasus 분석(429 시 폴백: 5구간 균등, 10~15초) → 4) 최종 JSON 생성
+
+        ## 출력 JSON 예:
+        {
+          "scenes": [
+            {
+              "prompt": "[사용자 요청]",
+              "text": "[장면 설명]",
+              "start_time": 시작시간(초),
+              "end_time": 종료시간(초),
+              "video_input": "영상파일명.mp4"
+            }
+          ]
+        }
+
+        ## 규칙:
+        - 각 구간 10~15초, 총 3~5개
+        - 30초 내 겹치면 하나만, 구간 사이 최소 1분 간격
+        - Assembly Workflow: InputClipping으로 한 번에 처리
+
+
+      ActionGroups:
+        - ActionGroupName: cut_shorts
+          ActionGroupExecutor:
+            Lambda: !Ref CutShortsLambdaArn
+          ActionGroupState: ENABLED
+          FunctionSchema:
+            Functions:
+              - Name: cut_shorts
+                Description: scenes 배열을 받아 숏츠(단일) 생성
+                Parameters: {}
+                RequireConfirmation: DISABLED
+
+  AllowAgentInvokeCutShorts:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref CutShortsLambdaArn
+      Action: lambda:InvokeFunction
+      Principal: bedrock.amazonaws.com
+      SourceArn: !GetAtt CutShortsAgent.AgentArn
+      SourceAccount: !Ref AWS::AccountId
+
+Outputs:
+  CutShortsAgentId:
+    Value: !Ref CutShortsAgent
+  CutShortsAgentArn:
+    Value: !GetAtt CutShortsAgent.AgentArn

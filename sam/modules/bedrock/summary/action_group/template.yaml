@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: summary action group (Lambda executor)
+
+Parameters:
+  DataBucketName:        { Type: String, Default: "" }
+  DataPrefix:            { Type: String, Default: "original/" }
+  SummarizerModelId:     { Type: String, Default: "amazon.nova-micro-v1:0" }
+  SummarizerProfileGlob: { Type: String, Default: "*nova-micro*" }
+
+Resources:
+  SummaryLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      # FunctionName: !Sub 'summary_lambda-${AWS::StackName}'   # (선택) 이름 충돌 방지
+      CodeUri: ./src
+      Handler: summary.lambda_handler        # ← 파일명이 그대로 short_cuts.py면 'short_cuts.lambda_handler'로 두세요
+      Runtime: python3.12
+      MemorySize: 512
+      Timeout: 900
+      AutoPublishAlias: live
+      Environment:
+        Variables:
+          DEFAULT_S3_BUCKET: !Ref DataBucketName
+          DEFAULT_S3_PREFIX: !Ref DataPrefix
+          SUMMARIZER_MODEL_ID: !Ref SummarizerModelId
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Sid: InvokeNovaMicro
+              Effect: Allow
+              Action: [ bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream ]
+              Resource: !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/${SummarizerModelId}"
+            - Sid: InvokeNovaMicroProfiles
+              Effect: Allow
+              Action: [ bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream ]
+              Resource: !Sub "arn:aws:bedrock:*:*:inference-profile/${SummarizerProfileGlob}"
+            - Sid: S3Read
+              Effect: Allow
+              Action: [ s3:GetObject ]
+              Resource: !If
+                - HasBucket
+                - !Sub "arn:aws:s3:::${DataBucketName}/*"
+                - !Ref "AWS::NoValue"
+        - AWSLambdaBasicExecutionRole
+  LambdaInvokeFromBedrock:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt SummaryLambda.Arn
+      Principal: bedrock.amazonaws.com  
+
+
+Conditions:
+  HasBucket: !Not [ !Equals [ !Ref DataBucketName, "" ] ]
+
+Outputs:
+  SummaryLambdaAliasArn:
+    Value: !Sub '${SummaryLambda.Arn}:live'

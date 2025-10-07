@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: shorts_1 action group (transcribe JSON fetch)
+
+Parameters:
+  OutputBucketName: { Type: String }   # e.g. video-output-pipeline-20250724
+
+Resources:
+  Shorts1Lambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./src
+      Handler: shorts_1.lambda_handler        # ← src/shorts_1.py
+      Runtime: python3.12
+      MemorySize: 512
+      Timeout: 900
+      AutoPublishAlias: live
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Sid: S3ReadTranscript
+              Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub "arn:aws:s3:::${OutputBucketName}/*"
+        - AWSLambdaBasicExecutionRole
+  LambdaInvokeFromBedrock:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt Shorts1Lambda.Arn
+      Principal: bedrock.amazonaws.com
+
+Outputs:
+  Shorts1LambdaAliasArn:
+    Value: !Sub "${Shorts1Lambda.Arn}:live"
+

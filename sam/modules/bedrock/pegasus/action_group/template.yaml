@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: pegasus action group (Lambda executor)
+
+Parameters:
+  DataBucketName: { Type: String }
+  DataPrefix:     { Type: String, Default: "original/" }
+  PegasusProfileName: { Type: String, Default: "apac.twelvelabs.pegasus-1-2-v1:0" }
+
+Resources:
+  PegasusLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      # FunctionName: !Sub 'pegasus_lambda-${AWS::StackName}'  # (선택) 이름충돌 방지
+      CodeUri: ./src
+      Handler: pegasus_lambda.lambda_handler
+      Runtime: python3.12
+      MemorySize: 512
+      Timeout: 900
+      AutoPublishAlias: live
+      Environment:
+        Variables:
+          DEFAULT_S3_BUCKET: !Ref DataBucketName
+          DEFAULT_S3_PREFIX: !Ref DataPrefix
+          PEGASUS_PROFILE: !Ref PegasusProfileName
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Sid: BedrockInvokePegasusProfile
+              Effect: Allow
+              Action: [ bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream ]
+              Resource:
+                - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${PegasusProfileName}"
+            - Sid: BedrockInvokePegasusModel
+              Effect: Allow
+              Action: [ bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream ]
+              Resource:
+                - arn:aws:bedrock:ap-northeast-2::foundation-model/twelvelabs.pegasus-1-2-v1:0
+            - Sid: S3ReadObjects
+              Effect: Allow
+              Action: [ s3:GetObject ]
+              Resource: !Sub "arn:aws:s3:::${DataBucketName}/*"
+        - AWSLambdaBasicExecutionRole
+  LambdaInvokeFromBedrock:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt PegasusLambda.Arn
+      Principal: bedrock.amazonaws.com  
+
+Outputs:
+  PegasusLambdaAliasArn:
+    Value: !Sub '${PegasusLambda.Arn}:live'

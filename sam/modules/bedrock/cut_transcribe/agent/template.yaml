@@ -1,0 +1,112 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: cut_transcribe Agent (connect action group)
+
+Parameters:
+  CutTranscribeLambdaArn: { Type: String }  # action_group Outputs(…:live)
+  AgentVersion:           { Type: String, Default: "DRAFT" }   # "DRAFT" 또는 "1","2" 같은 숫자 버전
+  AgentModelId:           { Type: String, Default: "anthropic.claude-3-5-sonnet-20241022-v2:0" }
+
+Resources:
+  CutTranscribeAgentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: bedrock.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AgentFoundationModel
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [ bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream ]
+                Resource: !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/${AgentModelId}"
+
+        # 요청하신 인퍼런스 프로파일 권한 (계정 자동 치환)
+        - PolicyName: AgentInferenceProfilesCrossRegion
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                  - bedrock:GetInferenceProfile
+                  - bedrock:GetFoundationModel
+                Resource:
+                  - !Sub "arn:aws:bedrock:ap-northeast-2:${AWS::AccountId}:inference-profile/anthropic.claude-3-7-sonnet-20250219-v1:0"
+                  - !Sub "arn:aws:bedrock:ap-northeast-2:${AWS::AccountId}:inference-profile/apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
+                  - arn:aws:bedrock:*::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0
+
+  CutTranscribeAgent:
+    Type: AWS::Bedrock::Agent
+    Properties:
+      # 이름 충돌 피하려면 스택명 붙이기 권장
+      AgentName: !Sub "${AWS::StackName}-cut_transcribe"
+      AgentResourceRoleArn: !GetAtt CutTranscribeAgentRole.Arn
+      FoundationModel: !Ref AgentModelId
+      AutoPrepare: true
+      IdleSessionTTLInSeconds: 600
+      Instruction: |
+        # 영상 편집 전문가 에이전트 (AWS MediaConvert)
+
+        당신은 AWS MediaConvert를 활용한 영상 편집 전문가입니다.
+        이전 단계에서 전달한 JSON 형식의 시간 정보를 바탕으로, 사용자가 요청한 영상 구간을 정확하게 잘라내고 S3에 저장합니다.
+
+        ## 입력 데이터 형식
+        {
+          "scenes": [
+            {
+              "prompt": "사용자 요청 내용",
+              "text": "찾은 텍스트",
+              "start_time": 시작시간(초),
+              "end_time": 종료시간(초),
+              "video_input": "영상이름.mp4"
+            }
+          ]
+        }
+
+        ## 작업 순서
+        1) 데이터 파싱/검증 → 2) S3 경로 설정 → 3) MediaConvert Job 실행 → 4) 결과 처리(파일/URL/썸네일)
+
+        ## 응답 형식(요약 텍스트 + JSON)
+        성공 시:
+        - "영상 자르기 완료! 총 [N]개 장면이 생성..."
+        - JSON:
+          {
+            "success": true,
+            "total_scenes": 3,
+            "videoFilenames": ["..."],
+            "videoUrls": ["..."],
+            "thumbnailUrls": ["..."],
+            "message": "..."
+          }
+
+        ## 오류 처리
+        - JSON 파싱 실패/MediaConvert 실패/S3 오류 시 명확한 메시지
+      ActionGroups:
+        - ActionGroupName: cut_transcribe
+          ActionGroupExecutor:
+            Lambda: !Ref CutTranscribeLambdaArn
+          ActionGroupState: ENABLED
+          FunctionSchema:
+            Functions:
+              - Name: cut_transcribe
+                Description: start_time/end_time 기반으로 영상 구간 자르기
+                Parameters: {}
+                RequireConfirmation: DISABLED
+
+
+  # Bedrock → Lambda 호출 허용
+  AllowInvokeFromAgentToCutTranscribe:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref CutTranscribeLambdaArn   # alias ARN(…:live)
+      Action: lambda:InvokeFunction
+      Principal: bedrock.amazonaws.com
+      SourceArn: !GetAtt CutTranscribeAgent.AgentArn
+      SourceAccount: !Ref AWS::AccountId
